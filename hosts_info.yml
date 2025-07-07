@@ -1,0 +1,46 @@
+- name: Get info about hosts
+  hosts: all
+  vars:
+    dir: "~/systeminfo"
+  tasks:
+    - name: Create folder "systeminfo" in home directory
+      file:
+        path: "{{ dir }}"
+        state: directory
+        mode: '0755'
+    - name: Get OS
+      shell: cat /etc/os-release | grep PRETTY_NAME | cut -d '"' -f 2
+      register: os
+    - name: Get CPU
+      shell: grep -oP "model name\s*:\s*\K.+" /proc/cpuinfo | head -n 1
+      register: cpu
+    - name: Get GPU
+      shell: |
+        lspci | grep -i 'vga\|3d\|display' | head -n1 | sed -E 's/.*\[([^]]+)\].*/\1/'
+      register: gpu
+    - name: Get RAM
+      shell: |
+        free -h | awk '/Mem:/ {print $2 " " $3}'
+      register: ram
+    - name: Get disk info
+      shell: |
+        df -h / | awk 'NR==2 {print $5 " " $2 " " $3 " " $4}'
+      register: disk
+    - name: Save all hosts info to file
+      copy:
+        content: |
+          {% for host in play_hosts %}
+          [{{ host }}]
+          OS: {{ hostvars[host].os.stdout }}
+          CPU: {{ hostvars[host].cpu.stdout }}
+          GPU: {{ hostvars[host].gpu.stdout }}
+          RAM: Total: {{ hostvars[host].ram.stdout.split()[0] }}, Used: {{ hostvars[host].ram.stdout.split()[1] }}
+          Disk: Usage: {{ hostvars[host].disk.stdout.split()[0] }}, Total: {{ hostvars[host].disk.stdout.split()[1] }}, Used: {{ hostvars[host].disk.stdout.split()[2] }}, Free: {{ hostvars[host].disk.stdout.split()[3] }}
+
+          {% endfor %}
+        dest: "{{ dir }}/all_hosts.txt"
+        mode: '0644'
+      run_once: true
+    - name: Result
+      debug:
+        msg: "System info saved to {{ dir }}/all_hosts.txt"
