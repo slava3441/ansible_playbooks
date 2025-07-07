@@ -1,5 +1,5 @@
 - name: Get info about hosts
-  hosts: all
+  hosts: localhost, all
   vars:
     dir: "~/systeminfo"
   tasks:
@@ -8,6 +8,8 @@
         path: "{{ dir }}"
         state: directory
         mode: '0755'
+      delegate_to: localhost
+      run_once: true
     - name: Get OS
       shell: cat /etc/os-release | grep PRETTY_NAME | cut -d '"' -f 2
       register: os
@@ -40,7 +42,9 @@
           {% endfor %}
         dest: "{{ dir }}/all_hosts.txt"
         mode: '0644'
+      delegate_to: localhost
       run_once: true
     - name: Result
       debug:
         msg: "System info saved to {{ dir }}/all_hosts.txt"
+      delegate_to: localhost
